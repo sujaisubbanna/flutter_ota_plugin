@@ -14,9 +14,9 @@ class FlutterOTA {
   final dmp = DiffMatchPatch();
   late String _channel;
   late String _currentCommit;
-  late Map<String, Map<String, dynamic>> data;
+  Map<String, Map<String, dynamic>> data = {};
 
-  static const String _API_ENDPOINT = 'localhost:3006';
+  static const String _API_ENDPOINT = 'cba92b16851a.ngrok.io';
 
   Future<String> get _localPath async {
     final directory = await getApplicationDocumentsDirectory();
@@ -28,6 +28,7 @@ class FlutterOTA {
     final filePath = '$path/$file';
     if (!File(filePath).existsSync()) {
       await File(filePath).create();
+      await File(filePath).writeAsString('');
     }
     return File(filePath);
   }
@@ -38,8 +39,18 @@ class FlutterOTA {
 
   Future<void> init() async {
     final SharedPreferences prefs = await _prefs;
-    _currentCommit = prefs.getString('CURRENT_COMMIT') ??
-        '2fd7f4b00af26121e71c7265cb247f9528810074';
+    _currentCommit = prefs.getString('CURRENT_COMMIT') ?? '';
+    if (_currentCommit == '') {
+      final String firstCommit = await retrieveFirstCommit();
+      prefs.setString('CURRENT_COMMIT', firstCommit);
+      _currentCommit = firstCommit;
+    }
+  }
+
+  Future<String> retrieveFirstCommit() async {
+    var url = Uri.http(_API_ENDPOINT, '/first-commit');
+    var response = await http.get(url);
+    return response.body;
   }
 
   Future<List<FileDiff>> getLatestData() async {
@@ -51,10 +62,12 @@ class FlutterOTA {
     Map<String, dynamic> data = json.decode(response.body);
     List<FileDiff> fileDiffs =
         (data['diff'] as List).map((e) => FileDiff.fromJson(e)).toList();
+    final SharedPreferences prefs = await _prefs;
+    await prefs.setString('CURRENT_COMMIT', data['latestCommit']);
     return fileDiffs;
   }
 
-  Future<void> sync() async {
+  Future<void> syncData() async {
     final result = await getLatestData();
     result.forEach((e) async {
       final List<Patch> patches = patchFromText(e.patches);
@@ -66,7 +79,12 @@ class FlutterOTA {
     });
   }
 
-  dynamic getValue(String file, String key) {
-    return data[file]?[key];
+  dynamic getValue(String fileName, String key) async {
+    if (data[fileName] == null) {
+      final File file = await _localFile('$fileName.json');
+      final String contents = await file.readAsString();
+      data[fileName] = json.decode(contents);
+    }
+    return data[fileName]?[key];
   }
 }

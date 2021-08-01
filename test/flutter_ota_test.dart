@@ -19,7 +19,7 @@ void main() {
   test('adds one to input values', () async {
     final flutterOTA = FlutterOTA(channel: 'main');
     await flutterOTA.init();
-    await flutterOTA.sync();
+    await flutterOTA.syncData();
     expect(1, 1);
   });
 }
