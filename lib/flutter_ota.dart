@@ -14,9 +14,16 @@ class FlutterOTA {
   final dmp = DiffMatchPatch();
   late String _channel;
   late String _currentCommit;
+  late String _API_ENDPOINT;
   Map<String, Map<String, dynamic>> data = {};
 
-  static const String _API_ENDPOINT = 'cba92b16851a.ngrok.io';
+  FlutterOTA({
+    required String channel,
+    required String endpoint,
+  }) {
+    this._channel = channel;
+    this._API_ENDPOINT = endpoint;
+  }
 
   Future<String> get _localPath async {
     final directory = await getApplicationDocumentsDirectory();
@@ -33,10 +40,6 @@ class FlutterOTA {
     return File(filePath);
   }
 
-  FlutterOTA({String channel = 'main'}) {
-    this._channel = channel;
-  }
-
   Future<void> init() async {
     final SharedPreferences prefs = await _prefs;
     _currentCommit = prefs.getString('CURRENT_COMMIT') ?? '';
@@ -45,6 +48,7 @@ class FlutterOTA {
       prefs.setString('CURRENT_COMMIT', firstCommit);
       _currentCommit = firstCommit;
     }
+    syncData();
   }
 
   Future<String> retrieveFirstCommit() async {
@@ -79,7 +83,7 @@ class FlutterOTA {
     });
   }
 
-  dynamic getValue(String fileName, String key) async {
+  Future<dynamic> getValue(String fileName, String key) async {
     if (data[fileName] == null) {
       final File file = await _localFile('$fileName.json');
       final String contents = await file.readAsString();
